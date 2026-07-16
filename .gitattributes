@@ -7,3 +7,6 @@
 
 *.txt text
 *.md  text
+
+# Build output is committed for clone-and-load distribution; hide it in GitHub diffs
+dist/** linguist-generated=true

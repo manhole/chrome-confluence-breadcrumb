@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Confluence Breadcrumb",
+  "version": "0.1.0",
+  "description": "Displays the page hierarchy (breadcrumb) at the top of Confluence Cloud pages.",
+  "content_scripts": [
+    {
+      "matches": ["https://*.atlassian.net/wiki/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
