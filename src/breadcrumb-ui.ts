@@ -4,12 +4,20 @@ const HOST_ID = "confluence-breadcrumb-ext";
 const TITLE_WAIT_TIMEOUT_MS = 8000;
 
 // Confirmed against real Confluence Cloud markup (2026-07): the title box is
-// div#title-text[data-testid="title-text"], pushed down by a 72px top margin
-// that collapses through its ancestors, while the page toolbar floats over the
-// top of the content column. An in-flow sibling therefore lands above that
-// margin, underneath the toolbar — so the host must sit out of flow, anchored
-// to the title box from above (see :host in STYLE).
-const TITLE_SELECTORS = ["#title-text", '[data-testid="title-text"]'];
+// div#title-text[data-testid="title-text"] on regular pages and
+// div#editor-title-id[data-testid="editor-title-container"] on live docs.
+// The breadcrumb hangs below the title box, out of flow. The space above the
+// title is unusable: on regular pages it is a collapsed 72px margin overlaid
+// by the floating page toolbar, and on live docs it is reserved for the
+// editor's hover toolbar (絵文字/ステータス/ヘッダー画像), which would cover
+// the breadcrumb. In-flow placement is also out: it would shift Confluence's
+// rigidly sized header layout.
+const TITLE_SELECTORS = [
+  "#title-text",
+  '[data-testid="title-text"]',
+  "#editor-title-id",
+  '[data-testid="editor-title-container"]',
+];
 
 // The --ds-* custom properties are Atlassian Design System tokens inherited
 // from the page, so colors follow the user's Confluence theme (incl. dark
@@ -18,7 +26,7 @@ const STYLE = `
 :host {
   display: block;
   position: absolute;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
 }

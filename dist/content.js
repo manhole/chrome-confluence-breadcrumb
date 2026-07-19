@@ -3,12 +3,17 @@
   // src/breadcrumb-ui.ts
   var HOST_ID = "confluence-breadcrumb-ext";
   var TITLE_WAIT_TIMEOUT_MS = 8e3;
-  var TITLE_SELECTORS = ["#title-text", '[data-testid="title-text"]'];
+  var TITLE_SELECTORS = [
+    "#title-text",
+    '[data-testid="title-text"]',
+    "#editor-title-id",
+    '[data-testid="editor-title-container"]'
+  ];
   var STYLE = `
 :host {
   display: block;
   position: absolute;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
 }
