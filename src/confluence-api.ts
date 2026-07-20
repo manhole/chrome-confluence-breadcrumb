@@ -31,6 +31,10 @@ interface PageSingle {
 interface SpaceSingle {
   name: string;
   key: string;
+  // The space's home page (its "overview"). It is the top ancestor of every
+  // page in the space and links to the same place as the space-name entry, so
+  // showing both is redundant — we drop this one from the breadcrumb.
+  homepageId?: string;
 }
 
 interface ContentEntity {
@@ -123,7 +127,9 @@ export async function fetchBreadcrumbData(
 
   return [
     { title: space.name, href: `/wiki/spaces/${encodeURIComponent(space.key)}` },
-    ...ancestors.map((a) => itemById.get(a.id) ?? { title: "…", href: null }),
+    ...ancestors
+      .filter((a) => a.id !== space.homepageId)
+      .map((a) => itemById.get(a.id) ?? { title: "…", href: null }),
     { title: page.title, href: null },
   ];
 }

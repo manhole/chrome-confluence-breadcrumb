@@ -220,7 +220,7 @@ a:hover {
     }
     return [
       { title: space.name, href: `/wiki/spaces/${encodeURIComponent(space.key)}` },
-      ...ancestors.map((a) => itemById.get(a.id) ?? { title: "\u2026", href: null }),
+      ...ancestors.filter((a) => a.id !== space.homepageId).map((a) => itemById.get(a.id) ?? { title: "\u2026", href: null }),
       { title: page.title, href: null }
     ];
   }
