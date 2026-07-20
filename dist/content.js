@@ -108,6 +108,22 @@ a:hover {
     fragment.append(nav);
     return fragment;
   }
+  function liveDocLeftOffsetPx(title, wrapper) {
+    const isLiveDoc = title.id === "editor-title-id" || title.getAttribute("data-testid") === "editor-title-container";
+    if (!isLiveDoc) {
+      return null;
+    }
+    const byline = document.querySelector('[data-testid="byline-single-line"]');
+    if (!byline) {
+      return null;
+    }
+    let leaf = byline;
+    while (leaf.firstElementChild) {
+      leaf = leaf.firstElementChild;
+    }
+    const offset = leaf.getBoundingClientRect().left - wrapper.getBoundingClientRect().left;
+    return Math.abs(offset) < 120 ? offset : null;
+  }
   async function renderBreadcrumb(items, signal) {
     const title = await waitForTitle(signal);
     if (signal.aborted) {
@@ -131,6 +147,12 @@ a:hover {
         wrapper.style.position = "relative";
       }
       title.insertAdjacentElement("beforebegin", host);
+    }
+    const offset = liveDocLeftOffsetPx(title, wrapper);
+    if (offset !== null) {
+      host.style.left = `${offset}px`;
+    } else {
+      host.style.removeProperty("left");
     }
     host.shadowRoot?.replaceChildren(buildContent(items));
   }

@@ -131,6 +131,34 @@ function buildContent(items: BreadcrumbItem[]): DocumentFragment {
   return fragment;
 }
 
+// On live docs the title's left edge shifts per page — a page-type/expand
+// icon can indent it well past the byline (作成者) row, which stays at the
+// content's left edge. Align the breadcrumb to the byline, not the title:
+// measure the byline avatar's left relative to the breadcrumb's containing
+// block (the title wrapper) and return it as the host's left offset. It goes
+// negative when the title is indented past the byline. Regular pages and a
+// not-yet-rendered byline return null, leaving the breadcrumb at the title's
+// left edge.
+function liveDocLeftOffsetPx(title: Element, wrapper: Element): number | null {
+  const isLiveDoc =
+    title.id === "editor-title-id" ||
+    title.getAttribute("data-testid") === "editor-title-container";
+  if (!isLiveDoc) {
+    return null;
+  }
+  const byline = document.querySelector('[data-testid="byline-single-line"]');
+  if (!byline) {
+    return null;
+  }
+  let leaf: Element = byline;
+  while (leaf.firstElementChild) {
+    leaf = leaf.firstElementChild;
+  }
+  const offset = leaf.getBoundingClientRect().left - wrapper.getBoundingClientRect().left;
+  // Sanity-check against unexpected geometry (e.g. an unrendered placeholder).
+  return Math.abs(offset) < 120 ? offset : null;
+}
+
 export async function renderBreadcrumb(items: BreadcrumbItem[], signal: AbortSignal): Promise<void> {
   const title = await waitForTitle(signal);
   if (signal.aborted) {
@@ -160,6 +188,13 @@ export async function renderBreadcrumb(items: BreadcrumbItem[], signal: AbortSig
       (wrapper as HTMLElement).style.position = "relative";
     }
     title.insertAdjacentElement("beforebegin", host);
+  }
+
+  const offset = liveDocLeftOffsetPx(title, wrapper);
+  if (offset !== null) {
+    host.style.left = `${offset}px`;
+  } else {
+    host.style.removeProperty("left");
   }
 
   host.shadowRoot?.replaceChildren(buildContent(items));
