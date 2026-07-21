@@ -18,6 +18,9 @@
   right: 0;
 }
 nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   line-height: 1.5;
   color: var(--ds-text-subtle, #626f86);
@@ -40,6 +43,27 @@ a {
 a:hover {
   color: var(--ds-link, #0c66e4);
   text-decoration: underline;
+}
+button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+button:hover {
+  color: var(--ds-link, #0c66e4);
+  background: var(--ds-background-neutral-subtle-hovered, rgba(9, 30, 66, 0.06));
+}
+svg {
+  display: block;
+  width: 14px;
+  height: 14px;
 }
 `;
   function queryTitle() {
@@ -81,6 +105,71 @@ a:hover {
       observer.observe(document.body, { childList: true, subtree: true });
     });
   }
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var COPY_LABEL = "Copy breadcrumb";
+  var COPIED_LABEL = "Copied";
+  var COPIED_RESET_MS = 1500;
+  function breadcrumbToText(items) {
+    return items.map((item) => item.title).join(" > ");
+  }
+  function createIcon() {
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    return svg;
+  }
+  function createCopyIcon() {
+    const svg = createIcon();
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", "9");
+    rect.setAttribute("y", "9");
+    rect.setAttribute("width", "13");
+    rect.setAttribute("height", "13");
+    rect.setAttribute("rx", "2");
+    rect.setAttribute("ry", "2");
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1");
+    svg.append(rect, path);
+    return svg;
+  }
+  function createCheckIcon() {
+    const svg = createIcon();
+    const polyline = document.createElementNS(SVG_NS, "polyline");
+    polyline.setAttribute("points", "20 6 9 17 4 12");
+    svg.append(polyline);
+    return svg;
+  }
+  function createCopyButton(items) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.title = COPY_LABEL;
+    button.setAttribute("aria-label", COPY_LABEL);
+    button.append(createCopyIcon());
+    let resetTimer;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(breadcrumbToText(items));
+      } catch (err) {
+        console.debug("[confluence-breadcrumb] failed to copy breadcrumb:", err);
+        return;
+      }
+      button.replaceChildren(createCheckIcon());
+      button.title = COPIED_LABEL;
+      button.setAttribute("aria-label", COPIED_LABEL);
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        button.replaceChildren(createCopyIcon());
+        button.title = COPY_LABEL;
+        button.setAttribute("aria-label", COPY_LABEL);
+      }, COPIED_RESET_MS);
+    });
+    return button;
+  }
   function buildContent(items) {
     const fragment = document.createDocumentFragment();
     const style = document.createElement("style");
@@ -105,6 +194,7 @@ a:hover {
       ol.append(li);
     });
     nav.append(ol);
+    nav.append(createCopyButton(items));
     fragment.append(nav);
     return fragment;
   }
