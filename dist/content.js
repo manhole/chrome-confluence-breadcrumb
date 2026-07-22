@@ -316,7 +316,7 @@ svg {
   }
 
   // src/page-url.ts
-  var PAGE_PATH_RE = /\/wiki\/spaces\/[^/]+\/pages\/(\d+)(?:\/|$)/;
+  var PAGE_PATH_RE = /\/wiki\/spaces\/[^/]+\/pages\/(?:edit-v2\/)?(\d+)(?:\/|$)/;
   function extractPageId(url) {
     const parsed = new URL(url);
     const match = PAGE_PATH_RE.exec(parsed.pathname);
@@ -347,14 +347,37 @@ svg {
 
   // src/content.ts
   var currentPageId = null;
+  var currentItems = null;
   var controller = null;
+  var hostObserver = null;
+  function watchForHostRemoval() {
+    hostObserver?.disconnect();
+    hostObserver = new MutationObserver(() => {
+      if (currentPageId === null || currentItems === null || controller === null || controller.signal.aborted) {
+        return;
+      }
+      if (!document.getElementById("confluence-breadcrumb-ext")) {
+        hostObserver.disconnect();
+        void renderBreadcrumb(currentItems, controller.signal).then(() => {
+          if (document.getElementById("confluence-breadcrumb-ext")) {
+            watchForHostRemoval();
+          }
+        });
+      }
+    });
+    hostObserver.observe(document.body, { childList: true, subtree: true });
+  }
   async function update(pageId, signal) {
     try {
       const items = await fetchBreadcrumbData(pageId, signal);
       if (signal.aborted || pageId !== currentPageId) {
         return;
       }
+      currentItems = items;
       await renderBreadcrumb(items, signal);
+      if (!signal.aborted) {
+        watchForHostRemoval();
+      }
     } catch (err) {
       if (!signal.aborted) {
         console.debug("[confluence-breadcrumb] failed to build breadcrumb:", err);
@@ -367,6 +390,8 @@ svg {
       return;
     }
     currentPageId = pageId;
+    currentItems = null;
+    hostObserver?.disconnect();
     controller?.abort();
     controller = new AbortController();
     if (pageId === null) {
