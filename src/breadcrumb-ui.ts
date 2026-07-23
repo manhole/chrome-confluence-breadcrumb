@@ -2,6 +2,10 @@ import type { BreadcrumbItem } from "./confluence-api";
 
 const HOST_ID = "confluence-breadcrumb-ext";
 const TITLE_WAIT_TIMEOUT_MS = 8000;
+const SPACING_CLEARANCE_PX = 4;
+
+let spacingObserver: ResizeObserver | null = null;
+let spacedTarget: HTMLElement | null = null;
 
 // Confirmed against real Confluence Cloud markup (2026-07): the title box is
 // div#title-text[data-testid="title-text"] on regular pages and
@@ -263,6 +267,55 @@ function liveDocLeftOffsetPx(title: Element, wrapper: Element): number | null {
   return Math.abs(offset) < 120 ? offset : null;
 }
 
+function findByline(): Element | null {
+  return (
+    document.querySelector('[data-testid="content-title-and-byline"]') ??
+    document.querySelector('[data-testid="byline-single-line"]')
+  );
+}
+
+// Walk up from `start` until we find an ancestor whose next sibling (or a
+// later sibling) contains `byline`.  That ancestor is the element we add
+// margin-bottom to so that the byline is pushed below the breadcrumb.
+function findSpacingTarget(
+  start: Element,
+  byline: Element,
+): HTMLElement | null {
+  let el: Element | null = start;
+  while (el) {
+    let sib = el.nextElementSibling;
+    while (sib) {
+      if (sib === byline || sib.contains(byline)) return el as HTMLElement;
+      sib = sib.nextElementSibling;
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function adjustSpacing(host: HTMLElement, wrapper: HTMLElement): void {
+  const byline = findByline();
+  if (!byline) return;
+
+  const target = findSpacingTarget(wrapper, byline);
+  if (!target) return;
+
+  if (spacedTarget && spacedTarget !== target) {
+    spacedTarget.style.removeProperty("margin-bottom");
+  }
+  spacedTarget = target;
+
+  const currentMargin = parseFloat(getComputedStyle(target).marginBottom) || 0;
+  const overlapWithMargin =
+    host.getBoundingClientRect().bottom - byline.getBoundingClientRect().top;
+  const naturalOverlap = overlapWithMargin + currentMargin;
+  if (naturalOverlap > 0) {
+    target.style.marginBottom = `${Math.ceil(naturalOverlap) + SPACING_CLEARANCE_PX}px`;
+  } else {
+    target.style.removeProperty("margin-bottom");
+  }
+}
+
 export async function renderBreadcrumb(items: BreadcrumbItem[], signal: AbortSignal): Promise<void> {
   const title = await waitForTitle(signal);
   if (signal.aborted) {
@@ -302,8 +355,22 @@ export async function renderBreadcrumb(items: BreadcrumbItem[], signal: AbortSig
   }
 
   host.shadowRoot?.replaceChildren(buildContent(items));
+
+  spacingObserver?.disconnect();
+
+  adjustSpacing(host, wrapper as HTMLElement);
+  spacingObserver = new ResizeObserver(() => {
+    adjustSpacing(host, wrapper as HTMLElement);
+  });
+  spacingObserver.observe(host);
 }
 
 export function removeBreadcrumb(): void {
+  spacingObserver?.disconnect();
+  spacingObserver = null;
+  if (spacedTarget) {
+    spacedTarget.style.removeProperty("margin-bottom");
+    spacedTarget = null;
+  }
   document.getElementById(HOST_ID)?.remove();
 }

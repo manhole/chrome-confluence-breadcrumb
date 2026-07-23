@@ -3,6 +3,9 @@
   // src/breadcrumb-ui.ts
   var HOST_ID = "confluence-breadcrumb-ext";
   var TITLE_WAIT_TIMEOUT_MS = 8e3;
+  var SPACING_CLEARANCE_PX = 4;
+  var spacingObserver = null;
+  var spacedTarget = null;
   var TITLE_SELECTORS = [
     "#title-text",
     '[data-testid="title-text"]',
@@ -214,6 +217,39 @@ svg {
     const offset = leaf.getBoundingClientRect().left - wrapper.getBoundingClientRect().left;
     return Math.abs(offset) < 120 ? offset : null;
   }
+  function findByline() {
+    return document.querySelector('[data-testid="content-title-and-byline"]') ?? document.querySelector('[data-testid="byline-single-line"]');
+  }
+  function findSpacingTarget(start, byline) {
+    let el = start;
+    while (el) {
+      let sib = el.nextElementSibling;
+      while (sib) {
+        if (sib === byline || sib.contains(byline)) return el;
+        sib = sib.nextElementSibling;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+  function adjustSpacing(host, wrapper) {
+    const byline = findByline();
+    if (!byline) return;
+    const target = findSpacingTarget(wrapper, byline);
+    if (!target) return;
+    if (spacedTarget && spacedTarget !== target) {
+      spacedTarget.style.removeProperty("margin-bottom");
+    }
+    spacedTarget = target;
+    const currentMargin = parseFloat(getComputedStyle(target).marginBottom) || 0;
+    const overlapWithMargin = host.getBoundingClientRect().bottom - byline.getBoundingClientRect().top;
+    const naturalOverlap = overlapWithMargin + currentMargin;
+    if (naturalOverlap > 0) {
+      target.style.marginBottom = `${Math.ceil(naturalOverlap) + SPACING_CLEARANCE_PX}px`;
+    } else {
+      target.style.removeProperty("margin-bottom");
+    }
+  }
   async function renderBreadcrumb(items, signal) {
     const title = await waitForTitle(signal);
     if (signal.aborted) {
@@ -245,8 +281,20 @@ svg {
       host.style.removeProperty("left");
     }
     host.shadowRoot?.replaceChildren(buildContent(items));
+    spacingObserver?.disconnect();
+    adjustSpacing(host, wrapper);
+    spacingObserver = new ResizeObserver(() => {
+      adjustSpacing(host, wrapper);
+    });
+    spacingObserver.observe(host);
   }
   function removeBreadcrumb() {
+    spacingObserver?.disconnect();
+    spacingObserver = null;
+    if (spacedTarget) {
+      spacedTarget.style.removeProperty("margin-bottom");
+      spacedTarget = null;
+    }
     document.getElementById(HOST_ID)?.remove();
   }
 
